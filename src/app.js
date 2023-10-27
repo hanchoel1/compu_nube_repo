@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 // Configuración de la base de datos
 const pool = new Pool({
   user: 'postgres',
-  host: 'localhost',
+  host: 'node_db',
   database: 'test',
   password: 'h',
   port: 5432,
@@ -132,6 +132,6 @@ app.delete('/directories/:id', async (req, res) => {
 });
 
 // Iniciar el servidor
-app.listen(3000, () => {
-  console.log('Servidor escuchando en el puerto 3000');
+app.listen(8000, () => {
+  console.log('Servidor escuchando en el puerto 8000');
 });

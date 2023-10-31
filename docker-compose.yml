@@ -7,9 +7,9 @@ services:
     build: 
       context: .
     ports:
-      - "8083:8000"
+      - "3000:3000"
     environment: 
-      - EXTERNAL_PORT=8000
+      - EXTERNAL_PORT=3000
       - PGDATABASE=test
       - PGUSER=postgres
       - PGPASSWORD=h

@@ -132,6 +132,6 @@ app.delete('/directories/:id', async (req, res) => {
 });
 
 // Iniciar el servidor
-app.listen(8000, () => {
-  console.log('Servidor escuchando en el puerto 8000');
+app.listen(3000, () => {
+  console.log('Servidor escuchando en el puerto 3000');
 });

@@ -4,16 +4,17 @@ services:
   node_backend:
     container_name: node-web-app
     image: node-web-app
+    
     build: 
       context: .
     ports:
       - "3000:3000"
     environment: 
-      - EXTERNAL_PORT=3000
-      - PGDATABASE=test
-      - PGUSER=postgres
-      - PGPASSWORD=h
-      - PGHOST=node_db
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
     networks:
       - cnp2_net
     depends_on: 
@@ -25,9 +26,9 @@ services:
     ports:
       - "5432:5432"
     environment: 
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=h
-      - POSTGRES_DB=test
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     volumes:
       - ./src/tablas.sql:/docker-entrypoint-initdb.d/tablas.sql
     networks:

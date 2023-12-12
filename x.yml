@@ -1,0 +1,234 @@
+kind: Template
+apiVersion: v1
+metadata:
+  name: cn-p2-simple-ws-template
+  annotations:
+    description: >-
+      Platilla de despliegue para cn-p2-simple-ws
+    tags: "dajngo,python"
+    openshift.io/documentation-url: "https://gitlab.com/rjrodrig/cn-p2-simple-ws"
+    openshift.io/suport-url: "https://gitlab.com/rjrodrig/cn-p2-simple-ws"
+
+parameters:
+  - name: APP_NAME
+    description: Nombre de applicación (Prefijo de todos los objetos).
+    required: true
+  
+  - name: DB_NAME
+    description: Nombre de la base de datos.
+    value: test
+
+  - name: DB_USR
+    description: Nombre de usario para conexión a la base de datos.
+    value: postgres
+
+  - name: DB_PWD
+    description: Password de usuario para conexión a la base de datos.
+    required: true
+
+  - name: DOMAIN_NAME
+    description: Nombre de dominio para la publicación de la ruta.
+    required: true
+
+  - name: PROJECT_NAME
+    description: Nombre del proyecto
+    required: true
+
+
+labels:
+  app: "${APP_NAME}"
+
+objects:
+
+  - kind: Secret
+    apiVersion: v1
+    metadata:
+      name: "${APP_NAME}-keys"
+    type: Opaque
+    stringData:
+      db_pwd: '${DB_PWD}'
+      db_usr: '${DB_USR}'
+      db_name: '${DB_NAME}'
+
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: "${APP_NAME}-appserver"
+    spec:
+      ports:
+        - name: appserver
+          port: 3000
+          targetPort: 3000
+      selector:
+        name: "${APP_NAME}-appserver"
+    
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      labels:
+        app: ${APP_NAME}-appserver
+      name: ${APP_NAME}-appserver
+    spec:
+      host: ${DOMAIN_NAME}
+      port:
+        targetPort: appserver
+      tls:
+        insecureEdgeTerminationPolicy: Redirect
+        termination: edge
+      to:
+        kind: Service
+        name: ${APP_NAME}-appserver
+        weight: 100
+      wildcardPolicy: None
+  
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: '${APP_NAME}-pgsql'
+    spec:
+      type: ClusterIP
+      ports:
+        - name: postgresql
+          port: 5432
+          protocol: TCP
+          targetPort: 5432
+      selector:
+        name: '${APP_NAME}-pgsql'
+
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: '${APP_NAME}-pgsql'
+    spec:
+      replicas: 1
+      selector:
+        name: ${APP_NAME}-pgsql
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            name: "${APP_NAME}-pgsql"
+        spec:
+          containers:
+            - env:
+              - name: POSTGRESQL_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: "${APP_NAME}-keys"
+                    key: db_usr
+              - name: POSTGRESQL_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: "${APP_NAME}-keys"
+                    key: db_pwd
+              - name: POSTGRESQL_DATABASE
+                valueFrom:
+                  secretKeyRef:
+                    name: "${APP_NAME}-keys"
+                    key: db_name
+              image: ' '
+              imagePullPolicy: Always
+              livenessProbe:
+                exec:
+                  command:
+                    - /usr/libexec/check-container
+                    - '--live'
+                failureThreshold: 3
+                initialDelaySeconds: 120
+                periodSeconds: 10
+                successThreshold: 1
+                timeoutSeconds: 10
+              name: postgresql
+              ports:
+                - containerPort: 5432
+                  protocol: TCP
+              readinessProbe:
+                exec:
+                  command:
+                    - /usr/libexec/check-container
+                failureThreshold: 3
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                successThreshold: 1
+                timeoutSeconds: 1
+              resources:
+                limits:
+                  memory: "1G"
+                requests:
+                  memory: "1G"
+              volumeMounts:
+                - mountPath: /var/lib/pgsql/data
+                  name: postgresql-data
+                  subPath: pgsql-data
+          restartPolicy: Always
+          securityContext:
+            supplementalGroups:
+              - 5688
+          volumes:
+            - name: postgresql-data
+              persistentVolumeClaim:
+                claimName: "data"
+      test: false
+      triggers:
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - postgresql
+            from:
+              kind: ImageStreamTag
+              name: 'postgresql:13'
+              namespace: 'openshift'
+            lastTriggeredImage: ''
+          type: ImageChange
+        - type: ConfigChange
+  
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: "${APP_NAME}-appserver"
+    spec:
+      replicas: 1
+      selector:
+        name: "${APP_NAME}-appserver"
+      template:
+        metadata:
+          labels:
+            app: "${APP_NAME}-appserver"
+            name: "${APP_NAME}-appserver"
+        spec:
+          containers:
+            - image: 'gaboperotto/compu_nube_repo-env'
+              imagePullPolicy: Always
+              name: appserver
+              env:
+                - name: DB_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: "${APP_NAME}-keys"
+                      key: db_name
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: "${APP_NAME}-keys"
+                      key: db_usr
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: "${APP_NAME}-keys"
+                      key: db_pwd
+                - name: DB_HOST
+                  value: ${APP_NAME}-pgsql.${PROJECT_NAME}.svc
+                - name: DJANGO_ALLOWED_HOSTS
+                  value: '*'
+              ports:
+                - containerPort: 3000
+                  protocol: TCP
+              resources:
+                limits:
+                  memory: "256M"
+                requests:
+                  memory: "256M"
+          restartPolicy: Always
+      test: false
+      

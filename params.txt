@@ -1,0 +1,4 @@
+APP_NAME="test1"
+DB_PWD="h"
+DOMAIN_NAME="hans.okd-dev.ucab.edu.ve"
+PROJECT_NAME="pj-hcalamo-17"
